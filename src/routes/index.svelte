@@ -1,8 +1,8 @@
 <script>
-    import {onMount} from "svelte";
     import ioClient from "socket.io-client";
+    import {page} from "$app/stores";
 
-    $: connectionUrl = "";
+    $: connectionUrl = $page.params?.socketUrl || "";
     $: io = null;
 
     $: connected = false;
