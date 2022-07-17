@@ -1,8 +1,10 @@
 <script>
     import ioClient from "socket.io-client";
     import {page} from "$app/stores";
+    import {onMount} from "svelte";
 
-    $: connectionUrl = $page.params?.socketUrl || "";
+    $: connectionUrl = "";
+
     $: io = null;
 
     $: connected = false;
@@ -39,6 +41,13 @@
             alert("Socket not connected")
         }
     }
+
+    onMount(() => {
+        connectionUrl = $page.url.searchParams.get("socketUrl");
+        if(connectionUrl){
+            socketInit();
+        }
+    })
 </script>
 
 <div style="width: 100vw; height: 100vh; display: flex; flex-direction: column; gap: 1rem;">
