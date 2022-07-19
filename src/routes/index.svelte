@@ -1,70 +1,74 @@
 <script>
-    import ioClient from "socket.io-client";
     import {page} from "$app/stores";
     import {onMount} from "svelte";
 
     $: connectionUrl = "";
 
-    $: io = null;
+    $: sockjs = null;
 
     $: connected = false;
     function socketInit() {
-        if(io){
-            io.disconnect()
-            io.removeAllListeners()
+        // eslint-disable-next-line no-undef
+        if(sockjs){
+            sockjs.close();
         }
-        io = ioClient(connectionUrl)
-        io.on("connect", () => {
+        sockjs = new SockJS(connectionUrl);
+
+        sockjs.onopen = () => {
             connected = true
-        })
-        io.on("disconnect", () => {
+        };
+        sockjs.onmessage = ({data}) => {
+            receiveMessage(data)
+        }
+        sockjs.onclose = () => {
             connected = false
-        })
-        io.onAny((event, data) => {
-            receiveMessage(event, data)
-        })
-
-
+        };
     }
     $: messages = [];
 
-    function receiveMessage(eventName, message) {
-        messages = messages.concat({eventName, message});
+    function receiveMessage(message) {
+        messages = messages.concat(message);
     }
 
     $: event = "";
     $: message = "";
     function sendMessage(){
-        if(io && connected){
-            io.emit(event, message)
+        if(sockjs && connected){
+            sockjs.send(message)
         }else{
             alert("Socket not connected")
         }
+        message = "";
     }
 
     onMount(() => {
-        connectionUrl = $page.url.searchParams.get("socketUrl");
+        connectionUrl = $page.url.searchParams.get("url");
         if(connectionUrl){
             socketInit();
         }
+        $page.url.searchParams.delete("url")
     })
 </script>
+<svelte:head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+</svelte:head>
 
 <div style="width: 100vw; height: 100vh; display: flex; flex-direction: column; gap: 1rem;">
-    <div style="display: flex; gap: 1rem;">
+    <form style="display: flex; gap: 1rem;" on:submit|preventDefault={socketInit}>
         <input style="width: 30rem;" type="text" id="socketUrl" placeholder="Socket connection url:port" bind:value={connectionUrl}>
-        <button id="connect" on:click={socketInit}>Connect</button>
+        <button type="submit" id="connect">Connect</button>
+        <button type="button" on:click={() => {sockjs && sockjs.close()}} disabled={!connected}>Disconnect</button>
         <span class={connected ? "connected" : "disconnected"}>{connected ? "Connected" : "Disconnected"}</span>
-    </div>
-    <div style="display: flex; gap: 1rem;">
-        <input type="text" placeholder="Event name" bind:value={event}>
+    </form>
+
+    <form style="display: flex; gap: 1rem;" on:submit|preventDefault={sendMessage}>
         <input type="text" style="width: 20rem;" placeholder="Message" bind:value={message}>
-        <button on:click={sendMessage}>Emit</button>
-    </div>
+        <button disabled={!connected}>Send</button>
+    </form>
 
     <ul>
         {#each messages as message}
-            <li>Event: {message.eventName} - {message.message}</li>
+            <li>{message}</li>
         {/each}
     </ul>
 </div>
